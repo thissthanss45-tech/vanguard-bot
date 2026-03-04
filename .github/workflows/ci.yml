@@ -39,12 +39,26 @@ jobs:
           pip install ruff
           ruff check . --output-format=github
 
-      - name: Run tests (unit only, no live API)
+      - name: Type-check with mypy (api/ strict)
+        run: |
+          pip install mypy types-PyYAML pandas-stubs sqlalchemy[mypy]
+          mypy api/ --config-file pyproject.toml
+
+      - name: Run bot unit tests
         env:
           TELEGRAM_BOT_TOKEN: "0000000000:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
           CACHE_BACKEND: memory
         run: |
-          pytest -q --ignore=tests/test_deepseek_live.py -x
+          pytest -q --ignore=tests/test_deepseek_live.py --ignore=tests/test_api.py -x
+
+      - name: Run API unit tests
+        env:
+          API_ADMIN_KEY: "ci-admin-secret"
+          API_DATABASE_URL: "sqlite:///:memory:"
+          TELEGRAM_BOT_TOKEN: "0000000000:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+          CACHE_BACKEND: memory
+        run: |
+          pytest -q tests/test_api.py -x
 
   docker-build:
     name: Docker build check

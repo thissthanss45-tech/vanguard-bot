@@ -8,9 +8,10 @@ from __future__ import annotations
 import hashlib
 import os
 import secrets
+from collections.abc import Callable
 from datetime import datetime, timezone
 
-from fastapi import Depends, HTTPException, Query, Security, status
+from fastapi import Depends, HTTPException, Security, status
 from fastapi.security.api_key import APIKeyHeader, APIKeyQuery
 from sqlalchemy.orm import Session
 
@@ -94,7 +95,7 @@ def require_admin(key: ApiKey = Depends(get_current_key)) -> ApiKey:
     return key
 
 
-def require_tier(min_tier: str):
+def require_tier(min_tier: str) -> Callable[..., ApiKey]:
     """Dependency factory: проверяем что tier >= min_tier.
     Порядок тиеров: free < pro < enterprise.
     """

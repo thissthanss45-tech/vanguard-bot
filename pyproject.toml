@@ -1,0 +1,108 @@
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.backends.legacy:build"
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Ruff (linter + formatter)
+# ─────────────────────────────────────────────────────────────────────────────
+[tool.ruff]
+target-version = "py312"
+line-length    = 100
+src            = ["."]
+
+[tool.ruff.lint]
+select = [
+  "E", "W",   # pycodestyle
+  "F",        # pyflakes
+  "I",        # isort
+  "B",        # flake8-bugbear
+  "C4",       # flake8-comprehensions
+  "UP",       # pyupgrade
+  "SIM",      # flake8-simplify
+  "TCH",      # flake8-type-checking (move TYPE_CHECKING imports)
+  "ANN",      # flake8-annotations (partial — только api/)
+]
+ignore = [
+  "ANN101",   # self type annotation
+  "ANN102",   # cls type annotation
+  "ANN401",   # Allow Any
+  "E501",     # line length handled by formatter
+  "SIM108",   # ternary — sometimes reduces readability
+]
+per-file-ignores = { "tests/**" = ["ANN"], "scripts/**" = ["ANN"] }
+
+[tool.ruff.lint.isort]
+known-first-party = ["api", "config", "ai_engine", "data_provider"]
+
+[tool.ruff.format]
+quote-style             = "double"
+indent-style            = "space"
+skip-magic-trailing-comma = false
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Mypy
+#  Стратегия: legacy-код (бот) — permissive (ignore errors);
+#             api/ — strict (мы написали его с нуля и контролируем)
+# ─────────────────────────────────────────────────────────────────────────────
+[tool.mypy]
+python_version         = "3.12"
+strict                 = false
+ignore_missing_imports = true   # для yfinance, telegram, diskcache, etc.
+warn_unused_configs    = true
+warn_return_any        = true
+warn_redundant_casts   = true
+warn_unused_ignores    = true
+show_error_codes       = true
+pretty                 = true
+
+# Модули без стабов — не проверяем строго
+[[tool.mypy.overrides]]
+module = [
+  "yfinance.*",
+  "diskcache.*",
+  "telegram.*",
+  "matplotlib.*",
+  "backtesting.*",
+  "tenacity.*",
+  "sentry_sdk.*",
+  "openpyxl.*",
+  "anthropic.*",
+  "openai.*",
+]
+ignore_missing_imports = true
+ignore_errors          = true
+
+# Legacy modules — отключаем строгую проверку
+[[tool.mypy.overrides]]
+module = [
+  "bot",
+  "bot.*",
+  "ai_engine",
+  "data_provider",
+  "news_provider",
+  "charts",
+  "cache_backend",
+  "backtesting",
+  "forecast_tracker",
+  "utils",
+  "i18n",
+  "logging_setup",
+]
+ignore_errors = true
+
+# api/ — строгий режим (наш новый код)
+[[tool.mypy.overrides]]
+module = ["api.*"]
+strict                 = true
+disallow_untyped_defs  = true
+disallow_any_generics  = true
+warn_return_any        = true
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Pytest
+# ─────────────────────────────────────────────────────────────────────────────
+[tool.pytest.ini_options]
+testpaths       = ["tests"]
+python_files    = ["test_*.py"]
+addopts         = "-q --tb=short"
+filterwarnings  = ["ignore::DeprecationWarning"]

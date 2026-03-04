@@ -6,6 +6,7 @@ from __future__ import annotations
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
@@ -24,7 +25,7 @@ from api.schemas import AnalyzeResponse, ForecastResponse
 router = APIRouter(prefix="/analyze", tags=["analysis"])
 
 
-def _get_forecast_data(ticker: str) -> dict:
+def _get_forecast_data(ticker: str) -> dict[str, Any]:
     """Загружаем рыночные данные + rule-based прогноз."""
     try:
         from data_provider import build_rule_based_forecast, get_market_data
@@ -41,7 +42,7 @@ def _get_forecast_data(ticker: str) -> dict:
     return {"market": market_data, "rule": rule}
 
 
-def _build_forecast_response(ticker: str, data: dict, latency_ms: int) -> ForecastResponse:
+def _build_forecast_response(ticker: str, data: dict[str, Any], latency_ms: int) -> ForecastResponse:
     m = data["market"]
     r = data["rule"]
     return ForecastResponse(
