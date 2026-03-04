@@ -1,0 +1,16 @@
+request_timeout_sec: 45
+tickers_per_page: 10
+market_cache_ttl_sec: 90
+news_cache_ttl_sec: 120
+ai_timeout_sec: 35
+log_file: vanguard_bot.log
+sentry_dsn: ""
+cache_backend: diskcache
+cache_dir: .cache
+redis_url: ""
+auth_whitelist: ""
+default_lang: ru
+use_webhook: false
+webhook_url: ""
+webhook_path: /telegram
+webhook_port: 8080

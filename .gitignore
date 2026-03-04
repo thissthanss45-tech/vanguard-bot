@@ -1,0 +1,44 @@
+# Секреты
+.env
+*.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# Тесты и покрытие
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Логи и дампы
+*.log
+nohup.out
+bot_log.txt
+bot_runtime.log
+vanguard_bot.log
+full_project_code.txt
+
+# БД и кэш
+*.db
+*.sqlite3
+.cache/
+diskcache/
+
+# Данные и артефакты
+data/
+*.xlsx
+*.tar.gz
+
+# Системные
+.DS_Store
+Thumbs.db
+
