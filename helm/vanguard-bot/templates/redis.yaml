@@ -1,0 +1,99 @@
+{{- if .Values.redis.enabled }}
+# ─── Redis PVC ────────────────────────────────────────────────────────────────
+{{- if .Values.redis.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "vanguard-bot.fullname" . }}-redis-data
+  namespace: {{ include "vanguard-bot.namespace" . }}
+  labels:
+    {{- include "vanguard-bot.labels" . | nindent 4 }}
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: {{ .Values.redis.persistence.size }}
+  {{- if .Values.redis.persistence.storageClass }}
+  storageClassName: {{ .Values.redis.persistence.storageClass | quote }}
+  {{- end }}
+---
+{{- end }}
+# ─── Redis Deployment ─────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "vanguard-bot.fullname" . }}-redis
+  namespace: {{ include "vanguard-bot.namespace" . }}
+  labels:
+    app: {{ include "vanguard-bot.fullname" . }}-redis
+    {{- include "vanguard-bot.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ include "vanguard-bot.fullname" . }}-redis
+  template:
+    metadata:
+      labels:
+        app: {{ include "vanguard-bot.fullname" . }}-redis
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+      containers:
+        - name: redis
+          image: {{ .Values.redis.image }}
+          imagePullPolicy: IfNotPresent
+          command:
+            - redis-server
+            - --save
+            - "60"
+            - "1"
+            - --loglevel
+            - warning
+          ports:
+            - containerPort: 6379
+              name: redis
+          resources:
+            {{- toYaml .Values.redis.resources | nindent 12 }}
+          livenessProbe:
+            exec:
+              command: [redis-cli, ping]
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            failureThreshold: 5
+          readinessProbe:
+            exec:
+              command: [redis-cli, ping]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+      volumes:
+        - name: redis-data
+          {{- if .Values.redis.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "vanguard-bot.fullname" . }}-redis-data
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+---
+# ─── Redis Service ────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "vanguard-bot.fullname" . }}-redis
+  namespace: {{ include "vanguard-bot.namespace" . }}
+  labels:
+    app: {{ include "vanguard-bot.fullname" . }}-redis
+    {{- include "vanguard-bot.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: {{ include "vanguard-bot.fullname" . }}-redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+      name: redis
+  clusterIP: None   # headless — бот обращается по DNS напрямую
+{{- end }}

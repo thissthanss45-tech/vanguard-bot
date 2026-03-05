@@ -1,0 +1,50 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  Staging overrides  (merge поверх values.yaml)
+#
+#  helm upgrade --install vanguard-bot-staging ./helm/vanguard-bot \
+#    -f helm/vanguard-bot/values.yaml \
+#    -f helm/vanguard-bot/values.staging.yaml \
+#    -n vanguard-staging --create-namespace
+# ─────────────────────────────────────────────────────────────────────────────
+
+namespace:
+  name: vanguard-staging
+
+image:
+  tag: "latest"
+  pullPolicy: Always
+
+ingress:
+  host: "api-staging.your-domain.example.com"
+  tls:
+    enabled: false
+
+autoscaling:
+  enabled: false     # staging: фиксированное число реплик
+
+api:
+  replicaCount: 1
+  workers: 1
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "128Mi"
+    limits:
+      cpu: "300m"
+      memory: "256Mi"
+
+bot:
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "128Mi"
+    limits:
+      cpu: "200m"
+      memory: "256Mi"
+
+redis:
+  persistence:
+    enabled: false   # staging: redis без PVC
+
+persistence:
+  size: "500Mi"

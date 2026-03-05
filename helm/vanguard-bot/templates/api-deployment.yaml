@@ -1,0 +1,101 @@
+{{- if .Values.api.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "vanguard-bot.fullname" . }}-api
+  namespace: {{ include "vanguard-bot.namespace" . }}
+  labels:
+    app: {{ include "vanguard-bot.fullname" . }}-api
+    {{- include "vanguard-bot.labels" . | nindent 4 }}
+  annotations:
+    checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+    {{- with .Values.api.podAnnotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.api.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app: {{ include "vanguard-bot.fullname" . }}-api
+  template:
+    metadata:
+      labels:
+        app: {{ include "vanguard-bot.fullname" . }}-api
+        {{- include "vanguard-bot.selectorLabels" . | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: {{ include "vanguard-bot.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: api
+          image: {{ include "vanguard-bot.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - uvicorn
+            - api.main:app
+            - --host
+            - "0.0.0.0"
+            - --port
+            - {{ .Values.api.port | quote }}
+            - --workers
+            - {{ .Values.api.workers | quote }}
+          ports:
+            - containerPort: {{ .Values.api.port }}
+              name: http
+          envFrom:
+            - configMapRef:
+                name: {{ include "vanguard-bot.fullname" . }}-config
+            - secretRef:
+                name: {{ include "vanguard-bot.fullname" . }}-secret
+          resources:
+            {{- toYaml .Values.api.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.api.port }}
+            initialDelaySeconds: {{ .Values.api.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.api.livenessProbe.periodSeconds }}
+            failureThreshold: {{ .Values.api.livenessProbe.failureThreshold }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.api.port }}
+            initialDelaySeconds: {{ .Values.api.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.api.readinessProbe.periodSeconds }}
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+      volumes:
+        - name: data
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "vanguard-bot.fullname" . }}-data
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+      terminationGracePeriodSeconds: 30
+---
+# ─── API Service ──────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "vanguard-bot.fullname" . }}-api
+  namespace: {{ include "vanguard-bot.namespace" . }}
+  labels:
+    app: {{ include "vanguard-bot.fullname" . }}-api
+    {{- include "vanguard-bot.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    app: {{ include "vanguard-bot.fullname" . }}-api
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.targetPort }}
+      name: http
+{{- end }}

@@ -1,0 +1,86 @@
+{{- if .Values.bot.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "vanguard-bot.fullname" . }}-bot
+  namespace: {{ include "vanguard-bot.namespace" . }}
+  labels:
+    app: {{ include "vanguard-bot.fullname" . }}-bot
+    {{- include "vanguard-bot.labels" . | nindent 4 }}
+  annotations:
+    # Автоматический restart при изменении ConfigMap или Secret
+    checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+    {{- with .Values.bot.podAnnotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  replicas: {{ .Values.bot.replicaCount }}
+  strategy:
+    type: {{ .Values.bot.strategy.type }}
+  selector:
+    matchLabels:
+      app: {{ include "vanguard-bot.fullname" . }}-bot
+  template:
+    metadata:
+      labels:
+        app: {{ include "vanguard-bot.fullname" . }}-bot
+        {{- include "vanguard-bot.selectorLabels" . | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: {{ include "vanguard-bot.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: bot
+          image: {{ include "vanguard-bot.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["python", "bot.py"]
+          ports:
+            - containerPort: 8080
+              name: webhook
+          envFrom:
+            - configMapRef:
+                name: {{ include "vanguard-bot.fullname" . }}-config
+            - secretRef:
+                name: {{ include "vanguard-bot.fullname" . }}-secret
+          resources:
+            {{- toYaml .Values.bot.resources | nindent 12 }}
+          {{- if .Values.bot.livenessProbe.enabled }}
+          livenessProbe:
+            exec:
+              command: ["python", "scripts/healthcheck.py"]
+            initialDelaySeconds: {{ .Values.bot.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.bot.livenessProbe.periodSeconds }}
+            failureThreshold: {{ .Values.bot.livenessProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.bot.readinessProbe.enabled }}
+          readinessProbe:
+            exec:
+              command: ["python", "scripts/healthcheck.py"]
+            initialDelaySeconds: {{ .Values.bot.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.bot.readinessProbe.periodSeconds }}
+          {{- end }}
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+            - name: charts
+              mountPath: /app/charts
+            - name: cache
+              mountPath: /app/.cache
+      volumes:
+        - name: data
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "vanguard-bot.fullname" . }}-data
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        - name: charts
+          emptyDir: {}
+        - name: cache
+          emptyDir: {}
+      terminationGracePeriodSeconds: 30
+{{- end }}

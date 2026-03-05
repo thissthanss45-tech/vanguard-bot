@@ -1,0 +1,23 @@
+apiVersion: v2
+name: vanguard-bot
+description: >
+  Vanguard Bot — Telegram financial analysis bot + SaaS REST API.
+  Includes: bot (singleton), api (scalable), redis, ingress, HPA, PVC.
+type: application
+version: 0.1.0
+appVersion: "1.5.1"
+
+keywords:
+  - telegram
+  - bot
+  - fastapi
+  - finance
+  - saas
+
+home: https://github.com/OWNER/vanguard_bot
+sources:
+  - https://github.com/OWNER/vanguard_bot
+
+maintainers:
+  - name: vanguard-bot
+    email: owner@example.com

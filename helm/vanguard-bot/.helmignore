@@ -1,0 +1,4 @@
+# Charts и временные файлы Helm
+charts/
+*.tgz
+.helmignore

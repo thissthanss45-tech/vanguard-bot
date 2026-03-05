@@ -1,0 +1,179 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  Vanguard Bot — Helm values (production defaults)
+#
+#  Переопределить для staging:
+#    helm upgrade --install vanguard-bot ./helm/vanguard-bot \
+#      -f helm/vanguard-bot/values.yaml \
+#      -f helm/vanguard-bot/values.staging.yaml
+#
+#  Секреты (НИКОГДА не коммитить!):
+#    helm upgrade ... --set secrets.telegramBotToken="..." \
+#                     --set secrets.apiAdminKey="..."
+#  Или через внешний Secrets manager (Vault / External Secrets Operator).
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ─── Namespace ────────────────────────────────────────────────────────────────
+namespace:
+  create: true
+  name: vanguard
+
+# ─── Global image ─────────────────────────────────────────────────────────────
+image:
+  registry: ghcr.io
+  repository: OWNER/vanguard_bot
+  tag: "1.5.1"
+  pullPolicy: Always
+
+# ─── Secrets (задаются через --set или внешний источник) ──────────────────────
+secrets:
+  # Telegram
+  telegramBotToken: ""
+  # AI providers (опционально)
+  deepseekApiKey: ""
+  groqApiKey: ""
+  anthropicApiKey: ""
+  # Webhook
+  webhookUrl: "https://your-domain.example.com"
+  # Auth whitelist (comma-separated Telegram user_ids)
+  authWhitelist: ""
+  # Admin Telegram chat_id
+  adminChatId: ""
+  # SaaS API
+  apiAdminKey: ""
+  apiDatabaseUrl: "sqlite:////app/data/vanguard_api.db"
+  # Stripe (опционально)
+  stripeWebhookSecret: ""
+  stripeApiKey: ""
+  stripePricePro: ""
+  stripePriceEnterprise: ""
+
+# ─── Config (non-secret env vars) ─────────────────────────────────────────────
+config:
+  cacheBackend: "redis"
+  requestTimeoutSec: "45"
+  marketCacheTtlSec: "90"
+  newsCacheTtlSec: "120"
+  aiProviderTimeoutSec: "22"
+  aiTotalBudgetSec: "24"
+  deepseekStrict: "true"
+  deepseekFastPrompt: "true"
+  deepseekRequireSuccess: "true"
+  deepseekMaxTokens: "280"
+  deepseekModel: "deepseek-chat"
+  groqModel: "llama-3.3-70b-versatile"
+  anthropicModel: "claude-3-5-sonnet-latest"
+  useWebhook: "true"
+  webhookPort: "8080"
+  webhookPath: "/telegram"
+  watchdogIntervalSec: "180"
+  apiCorsOrigins: "*"
+
+# ─── Bot ──────────────────────────────────────────────────────────────────────
+bot:
+  enabled: true
+  replicaCount: 1                   # Telegram polling = singleton
+  strategy:
+    type: Recreate                  # НЕ RollingUpdate (двойной polling = проблем
+а)
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+  livenessProbe:
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 30
+    failureThreshold: 3
+  readinessProbe:
+    enabled: true
+    initialDelaySeconds: 15
+    periodSeconds: 15
+  podAnnotations: {}
+
+# ─── API ──────────────────────────────────────────────────────────────────────
+api:
+  enabled: true
+  replicaCount: 2
+  port: 8090
+  workers: 2
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "192Mi"
+    limits:
+      cpu: "750m"
+      memory: "512Mi"
+  livenessProbe:
+    initialDelaySeconds: 20
+    periodSeconds: 20
+    failureThreshold: 3
+  readinessProbe:
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  podAnnotations: {}
+
+# ─── HPA ──────────────────────────────────────────────────────────────────────
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 8
+  targetCPUUtilizationPercentage: 65
+  targetMemoryAverageValue: "400Mi"
+
+# ─── Service ──────────────────────────────────────────────────────────────────
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8090
+
+# ─── Ingress ──────────────────────────────────────────────────────────────────
+ingress:
+  enabled: true
+  className: "nginx"
+  host: "api.your-domain.example.com"
+  tls:
+    enabled: false
+    secretName: "vanguard-api-tls"
+    # certManager: true       # раскомментировать если установлен cert-manager
+    # clusterIssuer: "letsencrypt-prod"
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-body-size: "1m"
+
+# ─── PVC ──────────────────────────────────────────────────────────────────────
+persistence:
+  enabled: true
+  size: "2Gi"
+  accessMode: ReadWriteOnce
+  storageClass: ""          # "" = кластерный default; "fast-ssd" для cloud
+
+# ─── Redis ────────────────────────────────────────────────────────────────────
+redis:
+  enabled: true
+  image: "redis:7-alpine"
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "64Mi"
+    limits:
+      cpu: "200m"
+      memory: "128Mi"
+  persistence:
+    enabled: true
+    size: "512Mi"
+    storageClass: ""
+
+# ─── ServiceAccount ───────────────────────────────────────────────────────────
+serviceAccount:
+  create: true
+  name: "vanguard-bot"
+  automountToken: false
+
+# ─── Security context ─────────────────────────────────────────────────────────
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
