@@ -1,5 +1,6 @@
 # Vanguard Bot
 
+![CI](https://github.com/thissthanss45-tech/vanguard-bot/actions/workflows/ci.yml/badge.svg)
 ![Python](https://img.shields.io/badge/Python-3.12+-3776AB?logo=python&logoColor=white)
 ![python-telegram-bot](https://img.shields.io/badge/python--telegram--bot-21.x-blue)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
