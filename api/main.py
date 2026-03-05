@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import logging
 import time
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException, Request
@@ -27,7 +28,8 @@ from api.database import init_db
 from api.routes.analyze import router as analyze_router
 from api.routes.keys import router as keys_router
 from api.routes.webhook import router as webhook_router
-from api.schemas import ErrorDetail, HealthResponse
+from api.schemas import HealthResponse
+from utils.trace import get_trace_id, new_trace_id, set_trace_id
 
 logger = logging.getLogger(__name__)
 
@@ -35,9 +37,17 @@ API_VERSION = "v1"
 API_PREFIX = f"/api/{API_VERSION}"
 
 
+@asynccontextmanager
+async def _lifespan(app: FastAPI):  # noqa: ARG001
+    init_db()
+    logger.info("✅ Vanguard API started, DB initialized")
+    yield
+
+
 def create_app() -> FastAPI:
     app = FastAPI(
         title="Vanguard Bot — Market Analysis API",
+        lifespan=_lifespan,
         description=(
             "REST API для технического анализа финансовых тикеров (акции, крипта, форекс, сырьё).\n\n"
             "## Аутентификация\n\n"
@@ -55,7 +65,7 @@ def create_app() -> FastAPI:
             "- `GET /api/v1/keys/me` — инфо о своём ключе\n"
             "- `GET /api/v1/keys/me/usage` — история запросов\n"
         ),
-        version="1.3.0",
+        version="1.4.0",
         docs_url="/docs",
         redoc_url="/redoc",
     )
@@ -71,13 +81,37 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # ─── Request timing middleware ──────────────────────────────────────────────
+    # ─── Trace + timing middleware ──────────────────────────────────────────────
     @app.middleware("http")
-    async def add_process_time_header(request: Request, call_next):
+    async def trace_middleware(request: Request, call_next):
+        # Принимаем внешний X-Request-ID или генерируем новый
+        external = request.headers.get("X-Request-ID", "").strip()
+        if external:
+            set_trace_id(external)
+            tid = get_trace_id()
+        else:
+            tid = new_trace_id()
+
+        request.state.trace_id = tid
         t0 = time.perf_counter()
-        response = await call_next(request)
+
+        try:
+            response = await call_next(request)
+        except Exception:
+            elapsed_ms = int((time.perf_counter() - t0) * 1000)
+            logger.error(
+                "trace=%s method=%s path=%s status=500 duration_ms=%s",
+                tid, request.method, request.url.path, elapsed_ms,
+            )
+            raise
+
         elapsed_ms = int((time.perf_counter() - t0) * 1000)
+        response.headers["X-Request-ID"] = tid
         response.headers["X-Process-Time-Ms"] = str(elapsed_ms)
+        logger.info(
+            "trace=%s method=%s path=%s status=%s duration_ms=%s",
+            tid, request.method, request.url.path, response.status_code, elapsed_ms,
+        )
         return response
 
     # ─── Global exception handler ──────────────────────────────────────────────
@@ -96,12 +130,6 @@ def create_app() -> FastAPI:
             status_code=500,
             content={"error": "Internal server error", "detail": str(exc)},
         )
-
-    # ─── Startup: инициализируем БД ──────────────────────────────────────────
-    @app.on_event("startup")
-    def on_startup():
-        init_db()
-        logger.info("✅ Vanguard API started, DB initialized")
 
     # ─── Routes ──────────────────────────────────────────────────────────────
     app.include_router(analyze_router, prefix=API_PREFIX)
