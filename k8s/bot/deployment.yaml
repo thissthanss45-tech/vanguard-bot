@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vanguard-bot
+  namespace: vanguard
+  labels:
+    app: vanguard-bot
+    app.kubernetes.io/part-of: vanguard-bot
+  annotations:
+    deployment.kubernetes.io/revision: "1"
+spec:
+  replicas: 1          # бот должен быть singleton (Telegram polling)
+  strategy:
+    type: Recreate     # НЕ RollingUpdate — иначе два экземпляра будут получать updates
+  selector:
+    matchLabels:
+      app: vanguard-bot
+  template:
+    metadata:
+      labels:
+        app: vanguard-bot
+      annotations:
+        checksum/config: "{{ include (print $.Template.BasePath \"/configmap.yaml\") . | sha256sum }}"
+    spec:
+      serviceAccountName: vanguard-bot
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: bot
+          image: ghcr.io/OWNER/vanguard_bot:1.4.0   # заменить на реальный registry
+          imagePullPolicy: Always
+          command: ["python", "bot.py"]
+          ports:
+            - containerPort: 8080
+              name: webhook
+          envFrom:
+            - configMapRef:
+                name: vanguard-bot-config
+            - secretRef:
+                name: vanguard-secret
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          livenessProbe:
+            exec:
+              command: ["python", "scripts/healthcheck.py"]
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command: ["python", "scripts/healthcheck.py"]
+            initialDelaySeconds: 15
+            periodSeconds: 15
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+            - name: charts
+              mountPath: /app/charts
+            - name: cache
+              mountPath: /app/.cache
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: vanguard-data
+        - name: charts
+          emptyDir: {}
+        - name: cache
+          emptyDir: {}
+      terminationGracePeriodSeconds: 30

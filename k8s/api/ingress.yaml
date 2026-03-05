@@ -1,0 +1,29 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: vanguard-api
+  namespace: vanguard
+  labels:
+    app.kubernetes.io/part-of: vanguard-bot
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-body-size: "1m"
+    # cert-manager: раскомментировать после установки cert-manager
+    # cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx
+  # tls:                                  # раскомментировать для HTTPS
+  #   - hosts:
+  #       - api.your-domain.example.com
+  #     secretName: vanguard-api-tls
+  rules:
+    - host: api.your-domain.example.com   # ← ЗАМЕНИТЬ НА СВОЙ ДОМЕН
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: vanguard-api
+                port:
+                  number: 80

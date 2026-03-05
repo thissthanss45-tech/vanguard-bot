@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vanguard-api
+  namespace: vanguard
+  labels:
+    app: vanguard-api
+    app.kubernetes.io/part-of: vanguard-bot
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: vanguard-api
+  template:
+    metadata:
+      labels:
+        app: vanguard-api
+    spec:
+      serviceAccountName: vanguard-bot
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: api
+          image: ghcr.io/OWNER/vanguard_bot:1.4.0   # тот же образ, другая команда
+          imagePullPolicy: Always
+          command:
+            - uvicorn
+            - api.main:app
+            - --host
+            - "0.0.0.0"
+            - --port
+            - "8090"
+            - --workers
+            - "2"
+          ports:
+            - containerPort: 8090
+              name: http
+          envFrom:
+            - configMapRef:
+                name: vanguard-bot-config
+            - secretRef:
+                name: vanguard-secret
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "192Mi"
+            limits:
+              cpu: "750m"
+              memory: "512Mi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8090
+            initialDelaySeconds: 20
+            periodSeconds: 20
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8090
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: vanguard-data
+      terminationGracePeriodSeconds: 30

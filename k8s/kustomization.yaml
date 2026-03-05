@@ -1,0 +1,28 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: vanguard
+
+resources:
+  - namespace.yaml
+  - redis/deployment.yaml
+  - redis/service.yaml
+  - bot/serviceaccount.yaml
+  - bot/configmap.yaml
+  - bot/deployment.yaml
+  - api/pvc.yaml
+  - api/deployment.yaml
+  - api/service.yaml
+  - api/ingress.yaml
+  - api/hpa.yaml
+
+# ─── Image overrides (менять здесь при релизе) ───────────────────────────────
+images:
+  - name: ghcr.io/OWNER/vanguard_bot
+    # newName: ghcr.io/YOUR_GITHUB_USERNAME/vanguard_bot
+    newTag: "1.4.0"
+
+# ─── Common labels ────────────────────────────────────────────────────────────
+commonLabels:
+  app.kubernetes.io/managed-by: kustomize
+  app.kubernetes.io/version: "1.4.0"

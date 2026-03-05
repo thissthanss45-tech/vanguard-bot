@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.0] - 2026-03-04
+
+### Added
+- SaaS API слой (FastAPI) — `api/` — публичный REST-интерфейс для монетизации
+- Tier-based rate limiting: `free` (10 req/day) / `pro` (200/day) / `enterprise` (∞)
+- `api/models.py`: `ApiKey`, `UsageLog`, `Tier` enum (SQLAlchemy + SQLite/PostgreSQL)
+- `api/auth.py`: аутентификация по `X-API-Key`, `require_tier()`, `require_admin()`
+- `api/rate_limiter.py`: подсчёт дневных запросов и логирование в `usage_logs`
+- `api/routes/analyze.py`: `GET /api/v1/analyze/forecast/{ticker}` (все тиры), `GET /api/v1/analyze/{ticker}` (pro/enterprise)
+- `api/routes/keys.py`: CRUD управление ключами (admin)
+- `api/routes/webhook.py`: Stripe HMAC-SHA256 webhook для автоматической активации подписок
+- `scripts/create_api_key.py`: CLI-инструмент для bootstrap первого admin-ключа
+- `docker-compose.prod.yml`: сервис `api` на порту 8090
+
+### Changed
+- `api/main.py`: переведён с deprecated `@app.on_event` на `lifespan` context manager
+- `requirements.txt`: добавлены `fastapi`, `uvicorn`, `sqlalchemy`, `pydantic-settings`, `stripe`
+
+---
+
 ## [1.3.0] - 2026-03-01
 
 ### Added
