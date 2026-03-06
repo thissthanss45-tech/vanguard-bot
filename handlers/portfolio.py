@@ -13,7 +13,7 @@ from bot_globals import (
     MENU, PORTFOLIO_MENU, PORTFOLIO_ADD, PORTFOLIO_CLOSE,
     portfolio_menu_markup,
     _deny_if_unauthorized, _is_back, _normalize_ticker,
-    _run_with_timeout, _cache_get, _cache_set, _wl_load,
+    _run_with_timeout, _cache_get, _cache_set, _wl_load, _main_markup,
     MARKET_CACHE_TTL_SEC,
 )
 
@@ -86,6 +86,13 @@ async def portfolio_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         context.user_data["pt_close_step"] = "pick"
         return PORTFOLIO_CLOSE
+
+    if "история" in text.lower():
+        user_id = update.effective_user.id
+        from portfolio_tracker import trade_history
+        result = trade_history(user_id)
+        await update.message.reply_text(result, parse_mode="Markdown", reply_markup=portfolio_menu_markup)
+        return PORTFOLIO_MENU
 
     if "бэктест" in text.lower():
         user_id = update.effective_user.id

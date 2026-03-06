@@ -137,6 +137,44 @@ def trade_close_with_pnl(user_id: int, trade_id: int, close_price: float) -> tup
     return msg, original
 
 
+def trade_history(user_id: int, limit: int = 20) -> str:
+    """Показывает последние закрытые сделки с P&L."""
+    closed_path = os.path.join(_DATA_DIR, f"portfolio_closed_{user_id}.json")
+    if not os.path.exists(closed_path):
+        return "📜 История сделок пуста. Закрытые сделки будут отображаться здесь."
+    try:
+        with open(closed_path, "r", encoding="utf-8") as f:
+            closed: list[dict] = json.load(f)
+    except Exception:
+        return "⚠️ Не удалось загрузить историю сделок."
+
+    if not closed:
+        return "📜 История сделок пуста."
+
+    # Показываем последние `limit` записей
+    recent = closed[-limit:]
+    lines = [f"📜 *История закрытых сделок* (последние {len(recent)}):", ""]
+    total_pnl = 0.0
+    for t in reversed(recent):
+        side = "🟢 ЛОНГ" if t.get("direction") == "buy" else "🔴 ШОРТ"
+        pnl = t.get("pnl_usd", 0)
+        pct = t.get("pnl_pct", 0)
+        total_pnl += pnl
+        emoji = "🟢" if pnl >= 0 else "🔴"
+        sign = "+" if pnl >= 0 else ""
+        lines.append(
+            f"{emoji} #{t.get('id','?')} {side} {t.get('qty','?')} `{t.get('ticker','?')}`\n"
+            f"   {t.get('entry_price','?')} → {t.get('close_price','?')}  "
+            f"P&L: {sign}{pnl} USD ({sign}{pct}%)\n"
+            f"   📅 {t.get('closed_at','?')}"
+        )
+    total_sign = "+" if total_pnl >= 0 else ""
+    total_emoji = "🟢" if total_pnl >= 0 else "🔴"
+    lines.append("")
+    lines.append(f"{total_emoji} *Итого по истории: {total_sign}{round(total_pnl, 2)} USD*")
+    return "\n".join(lines)
+
+
 def trade_list(user_id: int) -> str:
     trades = _load(user_id)
     if not trades:
