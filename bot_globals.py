@@ -649,7 +649,7 @@ watchlist_menu_markup = ReplyKeyboardMarkup(
 portfolio_menu_markup = ReplyKeyboardMarkup(
     [
         ['📊 P&L портфель', '📋 Мои сделки'],
-        ['➕ Добавить сделку', '❌ Закрыть сделку'],
+        ['➕ Добавить сделку', '🔒 Закрыть сделку'],
         ['📜 История сделок', '📈 Бэктест'],
         ['↩️ Назад'],
     ],
