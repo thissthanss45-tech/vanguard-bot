@@ -957,13 +957,37 @@ def _calc_corr_with_benchmark(symbol_close: pd.Series, benchmark_symbol: str, pe
 
 
 def get_market_data(ticker_symbol):
+    # ── MOEX detection (before main try block) ──────────────────────────────
     try:
-        ticker = yf.Ticker(ticker_symbol)
-        meta = _extract_ticker_meta(ticker_symbol, ticker)
+        from moex_provider import (
+            is_moex_ticker as _is_moex,
+            get_moex_history as _moex_hist,
+            get_moex_price as _moex_price,
+            get_moex_instrument_info as _moex_meta,
+        )
+        _use_moex = _is_moex(ticker_symbol)
+    except ImportError:
+        _use_moex = False
 
-        hist = _download_history(ticker_symbol, period="2y", interval="1d")
-        if hist.empty or len(hist) < 120:
-            return None
+    try:
+        if _use_moex:
+            meta = _moex_meta(ticker_symbol)
+            hist = _moex_hist(ticker_symbol, days=700)
+            if hist is None or len(hist) < 120:
+                return None
+            # Inject live price as last close
+            _live = _moex_price(ticker_symbol)
+            if _live:
+                hist = hist.copy()
+                hist.iloc[-1, hist.columns.get_loc("Close")] = _live
+            ticker = None  # no yf.Ticker object for MOEX
+        else:
+            ticker = yf.Ticker(ticker_symbol)
+            meta = _extract_ticker_meta(ticker_symbol, ticker)
+
+            hist = _download_history(ticker_symbol, period="2y", interval="1d")
+            if hist.empty or len(hist) < 120:
+                return None
 
         close = hist["Close"].astype(float)
         hist = hist.copy()
@@ -1032,11 +1056,25 @@ def get_market_data(ticker_symbol):
         # ML forecast (trained on full 2-year history)
         ml_stats = _ml.train_and_predict(hist)
 
-        # Earnings calendar (stocks only)
-        earnings_info = _get_earnings_info(ticker, ticker_symbol)
+        # Earnings calendar (stocks only, not MOEX)
+        earnings_info = (
+            _get_earnings_info(ticker, ticker_symbol)
+            if not _use_moex else {
+                "earnings_date": None, "days_to_earnings": None,
+                "earnings_warning": False, "earnings_warning_text": "",
+            }
+        )
 
-        # Multi-timeframe signals (1h + 1W)
-        multitf = _calc_multitf_signals(ticker_symbol)
+        # Multi-timeframe signals (1h + 1W) — skipped for MOEX (yfinance not available)
+        multitf = (
+            _calc_multitf_signals(ticker_symbol)
+            if not _use_moex else {
+                "tf_1h_bias": "н/д", "tf_1h_rsi": None,
+                "tf_1w_bias": "н/д", "tf_1w_rsi": None,
+                "tf_alignment": "н/д", "tf_alignment_score": 0,
+                "tf_available": False,
+            }
+        )
 
         # Fear & Greed Index
         fear_greed = _get_fear_greed(instrument_type=meta.get("instrument_type", ""))

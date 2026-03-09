@@ -26,6 +26,7 @@ services:
       USE_WEBHOOK: "false"
       WEBHOOK_PORT: 8080
       WEBHOOK_PATH: /telegram
+      ALPHA_VANTAGE_API_KEY: ""
     ports:
       - "18080:8080"
     volumes:

@@ -103,6 +103,7 @@ def append_snapshot_from_market_data(market_data: dict):
     FORECAST_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
     with FORECAST_LOG_PATH.open("a", encoding="utf-8") as fp:
         fp.write(json.dumps(snapshot.to_dict(), ensure_ascii=False) + "\n")
+    return snapshot.symbol, analyzed_at
 
 
 def _load_snapshots() -> list[dict[str, Any]]:

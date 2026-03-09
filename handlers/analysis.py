@@ -92,7 +92,14 @@ async def run_analysis_for_ticker(update: Update, context: ContextTypes.DEFAULT_
         return ANALYZING
 
     try:
-        append_snapshot_from_market_data(data)
+        snap_key = append_snapshot_from_market_data(data)
+        if snap_key:
+            symbol_key, analyzed_at_key = snap_key
+            key = f"{symbol_key}|{analyzed_at_key}"
+            subs = context.bot_data.setdefault("forecast_subscriptions", {})
+            chat_id = update.effective_user.id
+            if chat_id not in subs.setdefault(key, []):
+                subs[key].append(chat_id)
     except Exception as exc:
         logging.warning("forecast snapshot append failed for %s: %s", ticker, exc)
 
@@ -122,6 +129,20 @@ async def run_analysis_for_ticker(update: Update, context: ContextTypes.DEFAULT_
         triggered = _check_alert_trigger(alert_cfg, data)
         if triggered:
             await update.message.reply_text(triggered)
+
+    # Alpha Vantage fundamentals (optional, stocks only, needs ALPHA_VANTAGE_API_KEY)
+    try:
+        from alpha_vantage import get_fundamentals, format_fundamentals_block
+        if not any(x in ticker for x in ("-USD", "-EUR", "=X", "=F")):
+            fund = _cache_get("fundamentals", ticker, 86400)
+            if fund is None:
+                fund = get_fundamentals(ticker)
+                if fund:
+                    _cache_set("fundamentals", ticker, fund, 86400)
+            if fund:
+                final_text += f"\n\n{format_fundamentals_block(fund)}"
+    except Exception:
+        pass
 
     await _reply_long(update, final_text, reply_markup=analysis_result_markup)
 

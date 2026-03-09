@@ -24,7 +24,7 @@ from bot_globals import (
     WATCHLIST_MENU, WATCHLIST_ADD, WATCHLIST_REMOVE, WATCHLIST_PICK_TICKER,
     PORTFOLIO_MENU, PORTFOLIO_ADD, PORTFOLIO_CLOSE,
     start, help_command, cancel, reset_session,
-    on_error, _job_check_alerts, _job_watchlist_digest,
+    on_error, _job_check_alerts, _job_watchlist_digest, _job_matured_forecasts,
 )
 from handlers.analysis import (
     ask_analysis, open_popular_tickers, open_models, handle_models,
@@ -168,6 +168,7 @@ def main():
             time=_dt.time(hour=8, minute=0, tzinfo=timezone.utc),
             name="watchlist_digest",
         )
+        jq.run_repeating(_job_matured_forecasts, interval=3600, first=300, name="matured_forecasts")
 
     print("🚀 Бот запущен!")
     if APP_SETTINGS.use_webhook and APP_SETTINGS.webhook_url:

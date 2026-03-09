@@ -110,12 +110,17 @@ POPULAR_TICKERS = {
         "EURUSD=X", "GBPUSD=X", "USDJPY=X", "AUDUSD=X", "NZDUSD=X", "USDCAD=X", "USDCHF=X", "EURJPY=X",
         "EURGBP=X", "GBPJPY=X", "XAUUSD=X", "XAGUSD=X",
     ],
+    "🇷🇺 MOEX": [
+        "SBER", "GAZP", "LKOH", "YNDX", "ROSN", "NVTK", "GMKN", "TCSG", "MGNT",
+        "VTBR", "ALRS", "TATN", "CHMF", "NLMK", "MAGN", "IRAO", "RTKM", "AFLT",
+        "MOEX", "MTSS", "PLZL", "PHOR", "OZON", "HHRU",
+    ],
 }
 popular_categories_markup = ReplyKeyboardMarkup(
     [
         ['🟣 Крипта', '🔵 Акции'],
         ['🟡 Сырьё', '🟢 Форекс'],
-        ['↩️ Назад'],
+        ['🇷🇺 MOEX', '↩️ Назад'],
     ],
     resize_keyboard=True,
 )
@@ -933,6 +938,77 @@ async def _job_watchlist_digest(context) -> None:
 def _sync_user_alerts_map(context) -> None:
     """Called after every alert_command to keep bot_data.user_alerts_map in sync."""
     pass  # user_data changes are tracked via patched open_watchlist and alert_command
+
+
+async def _job_matured_forecasts(context) -> None:
+    """
+    Runs every hour. Detects newly matured D3 forecasts (72h after analysis) and
+    sends a result notification to every user who ran that analysis.
+    Tracks already-notified keys in bot_data to avoid duplicates.
+    """
+    try:
+        from forecast_tracker import (
+            _load_snapshots, _is_matured, _actual_return_3d, _classify_outcome,
+        )
+
+        subscriptions = context.bot_data.get("forecast_subscriptions", {})
+        if not subscriptions:
+            return
+
+        notified: set = context.bot_data.setdefault("forecast_notified", set())
+        _BIAS_EMOJI = {"Бычий": "🐂", "Медвежий": "🐻", "Нейтральный": "⚖️"}
+
+        for row in _load_snapshots():
+            symbol      = str(row.get("symbol", ""))
+            analyzed_at = str(row.get("analyzed_at_utc", ""))
+            if not symbol or not analyzed_at:
+                continue
+
+            key = f"{symbol}|{analyzed_at}"
+            if key in notified:
+                continue
+            if not _is_matured(analyzed_at, 72):
+                continue
+
+            chat_ids = subscriptions.get(key, [])
+            if not chat_ids:
+                notified.add(key)
+                continue
+
+            base_price = float(row.get("base_price", 0))
+            atr_14     = float(row.get("atr_14", 0))
+            d3_bias    = str(row.get("d3_bias", "Нейтральный"))
+
+            ret_3d, _ = await asyncio.to_thread(
+                _actual_return_3d, symbol, analyzed_at, base_price
+            )
+            if ret_3d is None:
+                continue  # price not yet available — retry next hour
+
+            actual_bias = _classify_outcome(ret_3d, atr_14, base_price)
+            is_correct  = actual_bias == d3_bias
+            verdict     = "✅ Прогноз верный!" if is_correct else "🔴 Прогноз не сбылся"
+            sign        = "+" if ret_3d >= 0 else ""
+            emoji       = "🟢" if ret_3d >= 0 else "🔴"
+
+            msg = (
+                f"🔔 *Прогноз {symbol} созрел (D3)*\n\n"
+                f"📊 Прогноз: {_BIAS_EMOJI.get(d3_bias,'⚖️')} {d3_bias}\n"
+                f"{emoji} Факт: {actual_bias} ({sign}{ret_3d}%)\n\n"
+                f"{verdict}"
+            )
+
+            for chat_id in chat_ids:
+                try:
+                    await context.bot.send_message(
+                        chat_id=int(chat_id), text=msg, parse_mode="Markdown"
+                    )
+                except Exception:
+                    pass
+
+            notified.add(key)
+    except Exception as exc:
+        logging.warning("_job_matured_forecasts failed: %s", exc)
 
 # ──────────────────────── END ФОНОВЫЕ ЗАДАЧИ ────────────────────────
 
