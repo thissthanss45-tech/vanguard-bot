@@ -115,7 +115,6 @@ async def forecast_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return FORECAST_MENU
 
     if text == "🗑️ Удалить всё (сброс)":
-        import os
         path = "data/forecast_snapshots.jsonl"
         open(path, "w").close()
         await update.message.reply_text(
