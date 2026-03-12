@@ -13,7 +13,7 @@ from bot_globals import (
     watchlist_menu_markup, popular_categories_markup,
     _deny_if_unauthorized, _is_back, _is_categories, _is_prev, _is_next, _normalize_nav_text,
     _normalize_ticker, _run_with_timeout, _cache_get, _cache_set, _safe_edit_status,
-    _wl_load, _wl_add, _wl_remove, _wl_format_list, _wl_remove_markup, _wl_picker_markup,
+    _wl_load, _wl_add, _wl_remove, _wl_save, _wl_format_list, _wl_remove_markup, _wl_picker_markup,
     _build_wl_tickers_markup, _clamp_page, _main_markup, _sync_wl_to_bot_data,
     POPULAR_TICKERS, MARKET_CACHE_TTL_SEC, ReplyKeyboardMarkup,
 )
