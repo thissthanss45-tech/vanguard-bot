@@ -85,6 +85,14 @@ async def alerts_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("↩️ Главное меню.", reply_markup=_main_markup(context))
         return MENU
 
+    if "алерт" in low and "добавить" not in low and "удалить" not in low and "очистить" not in low:
+        # Повторное нажатие кнопки "🔔 Алерты" из любого состояния — показываем меню
+        alerts = _get_alerts(context)
+        await update.message.reply_text(
+            _fmt_alerts(alerts), parse_mode="Markdown", reply_markup=alerts_menu_markup
+        )
+        return ALERT_MENU
+
     if "мои алерты" in low or "список" in low:
         alerts = _get_alerts(context)
         await update.message.reply_text(
@@ -95,8 +103,7 @@ async def alerts_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if "добавить" in low:
         context.user_data["alert_add_step"] = "ticker"
         await update.message.reply_text(
-            "Введи тикер для алерта\n_(например: TSLA, BTC\\-USD, SBER)_:",
-            parse_mode="MarkdownV2",
+            "Введи тикер для алерта (например: TSLA, BTC-USD, SBER):",
             reply_markup=_BACK_MARKUP,
         )
         return ALERT_ADD
