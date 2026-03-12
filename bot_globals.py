@@ -59,14 +59,14 @@ def _acquire_single_instance_lock(lock_path: str = "/tmp/vanguard_bot.lock") -> 
         return False
 
 # Состояния
-MENU, ANALYZING, NEWS_QUERY, SIGNAL_QUERY, SETTINGS_STATE, MODELS, PICK_TICKER, NEWS_PICK_TICKER, FORECAST_MENU, WATCHLIST_MENU, WATCHLIST_ADD, WATCHLIST_REMOVE, WATCHLIST_PICK_TICKER, PORTFOLIO_MENU, PORTFOLIO_ADD, PORTFOLIO_CLOSE = range(16)
+MENU, ANALYZING, NEWS_QUERY, SIGNAL_QUERY, SETTINGS_STATE, MODELS, PICK_TICKER, NEWS_PICK_TICKER, FORECAST_MENU, WATCHLIST_MENU, WATCHLIST_ADD, WATCHLIST_REMOVE, WATCHLIST_PICK_TICKER, PORTFOLIO_MENU, PORTFOLIO_ADD, PORTFOLIO_CLOSE, ALERT_MENU, ALERT_ADD, ALERT_DEL = range(19)
 
 # Кнопки меню
 main_keyboard = [
     ['📈 AI-Анализ', '🧠 Модели'],
     ['🗞 Новости', '⚙️ Настройки'],
     ['📌 Вотчлист', '📊 Прогноз'],
-    ['💼 Портфель'],
+    ['💼 Портфель', '🔔 Алерты'],
 ]
 main_markup = ReplyKeyboardMarkup(main_keyboard, resize_keyboard=True)
 back_markup = ReplyKeyboardMarkup([['↩️ Назад']], resize_keyboard=True)
@@ -665,6 +665,16 @@ watchlist_menu_markup = ReplyKeyboardMarkup(
         ['🔍 Скан вотчлиста'],
         ['➕ Добавить тикер', '🗑️ Удалить тикер'],
         ['📋 Мой список', '🧹 Очистить всё'],
+        ['↩️ Назад'],
+    ],
+    resize_keyboard=True,
+)
+
+alerts_menu_markup = ReplyKeyboardMarkup(
+    [
+        ['📋 Мои алерты'],
+        ['➕ Добавить алерт', '🗑️ Удалить алерт'],
+        ['🧹 Очистить всё'],
         ['↩️ Назад'],
     ],
     resize_keyboard=True,

@@ -17,6 +17,7 @@ class DummyUpdate:
         self.message = DummyMessage(text)
         self.effective_message = self.message
         self.effective_user = type("U", (), {"id": user_id})()
+        self.effective_chat = type("C", (), {"id": user_id})()
 
 
 class DummyContext:
@@ -39,7 +40,7 @@ def test_lang_command_sets_language():
 def test_alert_add_and_list():
     context = DummyContext()
 
-    add_update = DummyUpdate("/alert add BTC-USD 30")
+    add_update = DummyUpdate("/alert add BTC-USD rsi_below 30")
     asyncio.run(bot.alert_command(add_update, context))
 
     list_update = DummyUpdate("/alert list")

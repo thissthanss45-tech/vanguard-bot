@@ -23,9 +23,8 @@ from bot_globals import (
     PICK_TICKER, NEWS_PICK_TICKER, FORECAST_MENU,
     WATCHLIST_MENU, WATCHLIST_ADD, WATCHLIST_REMOVE, WATCHLIST_PICK_TICKER,
     PORTFOLIO_MENU, PORTFOLIO_ADD, PORTFOLIO_CLOSE,
-    ALERT_MENU, ALERT_ADD, ALERT_DEL,
     start, help_command, cancel, reset_session,
-    on_error, _job_check_alerts, _job_watchlist_digest, _job_matured_forecasts,
+    on_error, _job_check_alerts, _job_watchlist_digest,
 )
 from handlers.analysis import (
     ask_analysis, open_popular_tickers, open_models, handle_models,
@@ -41,9 +40,6 @@ from handlers.watchlist import (
 )
 from handlers.portfolio import (
     open_portfolio, portfolio_router, portfolio_add_handler, portfolio_close_handler,
-)
-from handlers.alerts import (
-    open_alerts_menu, alerts_router, alerts_add_handler, alerts_del_handler,
 )
 from handlers.commands import (
     stats_command, lang_command, alert_command, compare_command,
@@ -78,7 +74,6 @@ def main():
                 MessageHandler(filters.Regex('^⚙️ Настройки$'), open_settings),
                 MessageHandler(filters.Regex('^📚 Тикеры$'), open_popular_tickers),
                 MessageHandler(filters.Regex('^📊 Прогноз$'), open_forecast_menu),
-                MessageHandler(filters.Regex('^🔔 Алерты$'), open_alerts_menu),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, menu_router),
             ],
             ANALYZING: [
@@ -137,16 +132,6 @@ def main():
             PORTFOLIO_CLOSE: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, portfolio_close_handler),
             ],
-            ALERT_MENU: [
-                MessageHandler(filters.Regex('^↩️ Назад$'), alerts_router),
-                MessageHandler(filters.TEXT & ~filters.COMMAND, alerts_router),
-            ],
-            ALERT_ADD: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, alerts_add_handler),
-            ],
-            ALERT_DEL: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, alerts_del_handler),
-            ],
         },
         fallbacks=[
             CommandHandler('cancel', cancel),
@@ -183,7 +168,6 @@ def main():
             time=_dt.time(hour=8, minute=0, tzinfo=timezone.utc),
             name="watchlist_digest",
         )
-        jq.run_repeating(_job_matured_forecasts, interval=3600, first=300, name="matured_forecasts")
 
     print("🚀 Бот запущен!")
     if APP_SETTINGS.use_webhook and APP_SETTINGS.webhook_url:
