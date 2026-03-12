@@ -183,10 +183,23 @@ def _actual_return_3d(symbol: str, analyzed_at_utc: str, base_price: float) -> t
     # on the 3rd calendar day still counts even if snapshot was taken at 02:00 UTC.
     target_date = (start + timedelta(days=3)).date()
 
+    # Try yfinance first; fall back to MOEX ISS for Russian equities
+    hist = None
     try:
         hist = yf.Ticker(symbol).history(period="14d", interval="1d")
     except Exception:
-        return None, None
+        pass
+
+    if hist is None or hist.empty:
+        try:
+            from moex_provider import is_moex_ticker, get_moex_history
+            if is_moex_ticker(symbol):
+                # Use 60 days to pass the >= 30 rows check, then filter by date later
+                moex_hist = get_moex_history(symbol, days=60)
+                if moex_hist is not None and not moex_hist.empty:
+                    hist = moex_hist
+        except Exception:
+            pass
 
     if hist is None or hist.empty:
         return None, None

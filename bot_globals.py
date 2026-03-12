@@ -493,6 +493,23 @@ def _format_market_block(data: dict) -> str:
             f"Пивот: {_sr.get('pivot_classic','н/д')}\n"
         )
 
+    # ── Rule vs ML divergence warning ──────────────────────────────────────
+    ml_result = data.get("ml_forecast", {})
+    ml_available = ml_result.get("ml_available", False)
+    divergence_warning = ""
+    if ml_available:
+        ml_bull = float(ml_result.get("ml_bull_prob", 50))
+        rule_bull_val = float(rule["bullish_probability"])
+        divergence = abs(rule_bull_val - ml_bull)
+        if divergence >= 30:
+            ml_dir = "📈" if ml_bull > 50 else "📉"
+            rule_dir = "📈" if rule_bull_val > 50 else "📉"
+            divergence_warning = (
+                f"\n⚠️ Дивергенция Rule/ML: {divergence:.0f} п.п. "
+                f"(Rule {rule_dir}{rule_bull_val:.0f}% vs ML {ml_dir}{ml_bull:.0f}%) — "
+                f"сигнал неопределённости, повышенная осторожность"
+            )
+
     return (
         f"Дата анализа: {analysis_dt}\n"
         f"Тикер: {data['symbol']}\n"
@@ -517,6 +534,7 @@ def _format_market_block(data: dict) -> str:
            f"SL≈{round(p-a*1.5,4)} | TP1≈{round(p+a*2.25,4)} (ATR-ориентир)\n" if b=='Бычий'
            else (f"SL≈{round(p+a*1.5,4)} | TP1≈{round(p-a*2.25,4)} (ATR-ориентир)\n" if b=='Медвежий'
            else ""))() +
+        divergence_warning +
         f"\n{action_block}"
     )
 
