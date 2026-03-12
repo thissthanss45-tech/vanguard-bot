@@ -23,6 +23,7 @@ from handlers.settings import open_settings
 from handlers.forecast import open_forecast_menu
 from handlers.watchlist import open_watchlist
 from handlers.portfolio import open_portfolio
+from handlers.alerts import open_alerts_menu
 
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if await _deny_if_unauthorized(update, context):
@@ -353,6 +354,8 @@ async def menu_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await open_watchlist(update, context)
     if "портфель" in normalized or "portfolio" in normalized:
         return await open_portfolio(update, context)
+    if "алерт" in normalized:
+        return await open_alerts_menu(update, context)
     if "помощ" in normalized:
         return await help_command(update, context)
     if "сигнал" in normalized:

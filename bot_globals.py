@@ -241,7 +241,7 @@ def _main_markup(context: ContextTypes.DEFAULT_TYPE) -> ReplyKeyboardMarkup:
         ['📈 AI-Анализ', '🧠 Модели'],
         ['🗞 Новости', '⚙️ Настройки'],
         ['📌 Вотчлист', '📊 Прогноз'],
-        ['💼 Портфель'],
+        ['💼 Портфель', '🔔 Алерты'],
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
