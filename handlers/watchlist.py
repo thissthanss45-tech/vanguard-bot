@@ -582,6 +582,21 @@ async def watchlist_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(_wl_format_list(tickers), reply_markup=watchlist_menu_markup)
         return WATCHLIST_MENU
 
+    if "очистить" in normalized or "очист" in normalized:
+        user_id = update.effective_user.id
+        tickers = _wl_load(user_id)
+        if not tickers:
+            await update.message.reply_text("📌 Вотчлист уже пуст.", reply_markup=watchlist_menu_markup)
+            return WATCHLIST_MENU
+        count = len(tickers)
+        _wl_save(user_id, [])
+        _sync_wl_to_bot_data(context, user_id)
+        await update.message.reply_text(
+            f"🧹 Вотчлист очищен. Удалено {count} тикер(ов).",
+            reply_markup=watchlist_menu_markup,
+        )
+        return WATCHLIST_MENU
+
     await update.message.reply_text("Выбери действие:", reply_markup=watchlist_menu_markup)
     return WATCHLIST_MENU
 
