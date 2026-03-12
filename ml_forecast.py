@@ -2,7 +2,7 @@
 ML-based market direction forecasting module.
 
 Architecture:
-  - 28 technical features from OHLCV (MACD, BB, RSI variants, Stochastic, CCI, OBV, etc.)
+  - 34 technical + macro features from OHLCV + VIX + SPY (no look-ahead bias)
   - GradientBoostingClassifier with TimeSeriesSplit walk-forward CV
   - CalibratedClassifierCV (isotonic) for proper probability calibration
   - Returns calibrated bull/bear probabilities + honest walk-forward accuracy estimate
@@ -12,6 +12,8 @@ Realistic accuracy: 58-68% directional on liquid assets with clear trends.
 from __future__ import annotations
 
 import logging
+import threading
+from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
@@ -20,6 +22,34 @@ logger = logging.getLogger(__name__)
 
 MIN_TRAIN_ROWS = 200
 HORIZON_DAYS = 3
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Benchmark cache (VIX + SPY loaded once per session, refreshed every 6h)
+# ──────────────────────────────────────────────────────────────────────────────
+_BENCH_CACHE: dict = {}
+_BENCH_LOCK = threading.Lock()
+
+
+def _get_benchmark_series(symbol: str, period: str = "2y") -> pd.Series | None:
+    """Return daily Close series for a benchmark, cached up to 6 hours."""
+    import yfinance as yf
+    key = symbol
+    with _BENCH_LOCK:
+        entry = _BENCH_CACHE.get(key)
+        now = datetime.now(timezone.utc).timestamp()
+        if entry and (now - entry["ts"]) < 21600:  # 6h
+            return entry["data"]
+    try:
+        df = yf.Ticker(symbol).history(period=period, interval="1d")
+        if df.empty:
+            return None
+        series = df["Close"].astype(float)
+        with _BENCH_LOCK:
+            _BENCH_CACHE[key] = {"data": series, "ts": datetime.now(timezone.utc).timestamp()}
+        return series
+    except Exception as exc:
+        logger.debug("benchmark %s fetch failed: %s", symbol, exc)
+        return None
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -132,6 +162,35 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
     # ── Intraday candle features ──
     feat["hl_range_norm"] = (high - low) / (close + 1e-10)
     feat["close_in_range"] = (close - low) / (high - low + 1e-10)
+
+    # ── SPY relative strength (market context) ──
+    try:
+        spy = _get_benchmark_series("SPY")
+        if spy is not None and len(spy) > 20:
+            spy_r = spy.pct_change().reindex(close.index, method="ffill").fillna(0)
+            asset_r = close.pct_change().fillna(0)
+            feat["rel_spy_5d"]  = (asset_r.rolling(5).mean() - spy_r.rolling(5).mean()).clip(-0.1, 0.1)
+            feat["rel_spy_20d"] = (asset_r.rolling(20).mean() - spy_r.rolling(20).mean()).clip(-0.1, 0.1)
+        else:
+            feat["rel_spy_5d"]  = 0.0
+            feat["rel_spy_20d"] = 0.0
+    except Exception:
+        feat["rel_spy_5d"]  = 0.0
+        feat["rel_spy_20d"] = 0.0
+
+    # ── VIX regime (fear gauge) ──
+    try:
+        vix = _get_benchmark_series("^VIX")
+        if vix is not None and len(vix) > 5:
+            vix_aligned = vix.reindex(close.index, method="ffill").fillna(20.0)
+            feat["vix_level"]    = (vix_aligned / 40.0).clip(0, 2)          # normalized ~[0,1] typical
+            feat["vix_chg_5d"]   = vix_aligned.pct_change(5).clip(-1, 1).fillna(0)
+        else:
+            feat["vix_level"]    = 0.5
+            feat["vix_chg_5d"]   = 0.0
+    except Exception:
+        feat["vix_level"]    = 0.5
+        feat["vix_chg_5d"]   = 0.0
 
     return feat
 

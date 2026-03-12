@@ -873,24 +873,45 @@ def build_three_day_forecast(market_data, rule_forecast):
     ml_result = market_data.get("ml_forecast", {})
     base_bull = _ml.ensemble_probability(rule_bull, ml_result)
 
+    # Detect instrument class for adaptive thresholds
+    symbol = str(market_data.get("symbol", ""))
+    itype = (market_data.get("instrument_type") or "").lower()
+    is_futures = symbol.endswith("=F") or "фьючерс" in itype
+    is_crypto = "-usd" in symbol.lower() or "-eur" in symbol.lower() or "крипт" in itype
+    is_forex = symbol.endswith("=X") or "валют" in itype
+
     # If ML signals neutral dominance, widen neutral zone to avoid false calls
     neutral_dominant = ml_result.get("ml_neutral_dominant", False)
     ml_conf = ml_result.get("ml_confidence", "Низкая")
 
     # Prediction threshold: stricter when ML uncertain
-    if neutral_dominant or ml_conf == "Низкая":
-        bull_threshold = 70  # very confident only
-        bear_threshold = 30
+    # Minimum bull threshold is always 65% (removes most false bullish calls)
+    # Futures get even stricter thresholds (OPEC/seasonality/contango noise)
+    if is_futures or is_forex:
+        # Commodities/forex: tighter bands — only act on strong signals
+        if neutral_dominant or ml_conf == "Низкая":
+            bull_threshold = 76
+            bear_threshold = 24
+        else:
+            bull_threshold = 70
+            bear_threshold = 30
+    elif neutral_dominant or ml_conf == "Низкая":
+        bull_threshold = 72  # very confident only
+        bear_threshold = 28
     elif ml_conf == "Средняя":
         bull_threshold = 65
         bear_threshold = 35
     else:  # Высокая
-        bull_threshold = 62
-        bear_threshold = 38
+        bull_threshold = 65
+        bear_threshold = 35
 
     edge = base_bull - 50
     adx = float(market_data["adx_14"])
     vol = float(market_data["annualized_volatility_pct"])
+
+    # ADX market regime filter: below threshold → no directional signal
+    # Futures/crypto use lower ADX threshold (more volatile by nature)
+    adx_required = 20 if (is_futures or is_crypto) else 25
 
     if adx >= 25:
         stability = 0.9
@@ -912,12 +933,15 @@ def build_three_day_forecast(market_data, rule_forecast):
         bull = int(max(5, min(95, round(50 + projected_edge))))
         bear = 100 - bull
 
-        if bull >= bull_threshold:
+        # ADX regime filter: no directional signal in sideways market
+        if adx < adx_required:
+            bias = "Нет сигнала"  # choppy/sideways — directional forecasts unreliable
+        elif bull >= bull_threshold:
             bias = "Бычий"
         elif bull <= bear_threshold:
             bias = "Медвежий"
         else:
-            bias = "Нейтральный"
+            bias = "Нет сигнала"  # не торгуемая зона — не включаем в статистику точности
 
         results.append({
             "day": day,

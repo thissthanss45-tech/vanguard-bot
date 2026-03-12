@@ -342,11 +342,12 @@ def build_accuracy_stats() -> str:
         else:
             incorrect += 1
 
-        # by bias bucket
-        bucket = by_bias.setdefault(d3_bias, {"correct": 0, "total": 0})
-        bucket["total"] += 1
-        if is_correct:
-            bucket["correct"] += 1
+        # by bias bucket (exclude "Нет сигнала" from breakdown — it's intentionally untradeable)
+        if d3_bias != "Нет сигнала":
+            bucket = by_bias.setdefault(d3_bias, {"correct": 0, "total": 0})
+            bucket["total"] += 1
+            if is_correct:
+                bucket["correct"] += 1
 
         # by symbol
         by_symbol[symbol] = by_symbol.get(symbol, 0) + 1
@@ -381,7 +382,7 @@ def build_accuracy_stats() -> str:
     # Breakdown by bias
     lines.append("")
     lines.append("По типу прогноза:")
-    for bias_name in ["Бычий", "Медвежий", "Нейтральный"]:
+    for bias_name in ["Бычий", "Медвежий", "Нейтральный", "Нет сигнала"]:
         b = by_bias.get(bias_name)
         if b and b["total"] > 0:
             b_acc = b["correct"] / b["total"] * 100
